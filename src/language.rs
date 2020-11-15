@@ -477,7 +477,7 @@ pub trait Analysis<L: Language>: Sized {
     /// [`Analysis`].
     ///
     /// [`Analysis`]: trait.Analysis.html
-    fn make(egraph: &EGraph<L, Self>, enode: &L) -> Self::Data;
+    fn make(egraph: &EGraph<L, Self>, enode: &L, id: Id) -> Self::Data;
 
     /// An optional hook that allows inspection before a [`union`] occurs.
     ///
@@ -494,7 +494,7 @@ pub trait Analysis<L: Language>: Sized {
     /// [`EClass`]es merge. Returns whether `to` is changed.
     ///
     /// [`EClass`]: struct.EClass.html
-    fn merge(&self, to: &mut Self::Data, from: Self::Data) -> bool;
+    fn merge(&self, to: &mut Self::Data, to_id: Id, from: Self::Data, from_id: Id) -> bool;
 
     /// A hook that allows the modification of the
     /// [`EGraph`](struct.EGraph.html)
@@ -528,8 +528,8 @@ pub fn merge_if_different<D: PartialEq>(to: &mut D, new: D) -> bool {
 
 impl<L: Language> Analysis<L> for () {
     type Data = ();
-    fn make(_egraph: &EGraph<L, Self>, _enode: &L) -> Self::Data {}
-    fn merge(&self, _to: &mut Self::Data, _from: Self::Data) -> bool {
+    fn make(_egraph: &EGraph<L, Self>, _enode: &L, _i: Id) -> Self::Data {}
+    fn merge(&self, _to: &mut Self::Data, _to_id: Id, _from: Self::Data, _from_id: Id) -> bool {
         false
     }
 }

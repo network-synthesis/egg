@@ -293,7 +293,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
             let class = Box::new(EClass {
                 id,
                 nodes: vec![enode.clone()],
-                data: N::make(self, &enode),
+                data: N::make(self, &enode, id),
                 parents: Default::default(),
             });
 
@@ -383,7 +383,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
             let from_class = self.classes[usize::from(from)].take().unwrap();
             let to_class = self.classes[usize::from(to)].as_mut().unwrap();
 
-            self.analysis.merge(&mut to_class.data, from_class.data);
+            self.analysis.merge(&mut to_class.data, to_class.id, from_class.data, from_class.id);
             concat(&mut to_class.nodes, from_class.nodes);
             concat(&mut to_class.parents, from_class.parents);
 
@@ -643,9 +643,9 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
     fn propagate_metadata(&mut self, parents: &[(L, Id)]) {
         for (n, e) in parents {
             let e = self.find(*e);
-            let node_data = N::make(self, n);
+            let node_data = N::make(self, n, e);
             let class = self.classes[usize::from(e)].as_mut().unwrap();
-            if self.analysis.merge(&mut class.data, node_data) {
+            if self.analysis.merge(&mut class.data, class.id, node_data, e) {
                 // self.dirty_unions.push(e); // NOTE: i dont think this is necessary
                 let e_parents = std::mem::take(&mut class.parents);
                 self.propagate_metadata(&e_parents);
