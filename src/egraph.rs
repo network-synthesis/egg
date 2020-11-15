@@ -383,7 +383,7 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
             let from_class = self.classes[usize::from(from)].take().unwrap();
             let to_class = self.classes[usize::from(to)].as_mut().unwrap();
 
-            self.analysis.merge(&mut to_class.data, to_class.id, from_class.data, from_class.id);
+            self.analysis.merge(&mut to_class.data, to, from_class.data, from);
             concat(&mut to_class.nodes, from_class.nodes);
             concat(&mut to_class.parents, from_class.parents);
 
