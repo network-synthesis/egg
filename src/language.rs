@@ -121,6 +121,7 @@ pub trait Language: Debug + Clone + Eq + Ord + Hash {
         F: FnMut(Id) -> &'a [Self],
     {
         fn build<L: Language>(to: &mut RecExpr<L>, from: &[L]) -> Id {
+            println!("build({:?}, {:?})", to, from);
             let last = from.last().unwrap().clone();
             let new_node = last.map_children(|id| {
                 let i = usize::from(id) + 1;
