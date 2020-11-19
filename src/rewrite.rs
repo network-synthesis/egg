@@ -142,8 +142,8 @@ impl<L: Language, N: Analysis<L>> Rewrite<L, N> {
 /// [`Pattern`]: struct.Pattern.html
 pub trait Searcher<L, N>
 where
-    L: Language,
-    N: Analysis<L>,
+    L: Language+Send+Sync,
+    N: Analysis<L>+Send+Sync,
 {
     /// Search one eclass, returning None if no matches can be found.
     /// This should not return a SearchMatches with no substs.
@@ -275,8 +275,8 @@ where
 /// [`Analysis`]: trait.Analysis.html
 pub trait Applier<L, N>
 where
-    L: Language,
-    N: Analysis<L>,
+    L: Language+Send+Sync,
+    N: Analysis<L>+Send+Sync,
 {
     /// Apply many substititions.
     ///
