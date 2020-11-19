@@ -54,7 +54,7 @@ and
 [extract]: struct.Extractor.html
 [sound]: https://itinerarium.github.io/phoneme-synthesis/?w=/'igraf/
 **/
-#[derive(Clone)]
+//#[derive(Clone)]
 pub struct EGraph<L: Language, N: Analysis<L>> {
     /// The `Analysis` given when creating this `EGraph`.
     pub analysis: N,

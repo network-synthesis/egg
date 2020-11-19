@@ -1,31 +1,32 @@
 use crate::Id;
-use std::cell::Cell;
+use crossbeam::atomic::{AtomicCell};
 use std::fmt::Debug;
 
 // The Key bound on UnionFind is necessary to derive clone. We only
 // instantiate UnionFind in one place (EGraph), so this type bound
 // isn't intrusive
 
-#[derive(Debug, Clone, Default)]
+//#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct UnionFind {
-    parents: Vec<Cell<Id>>,
+    parents: Vec<AtomicCell<Id>>,
 }
 
 impl UnionFind {
     pub fn make_set(&mut self) -> Id {
         let id = Id::from(self.parents.len());
-        self.parents.push(Cell::new(id));
+        self.parents.push(AtomicCell::new(id));
         id
     }
 
     #[inline(always)]
     fn parent(&self, query: Id) -> Id {
-        self.parents[usize::from(query)].get()
+        self.parents[usize::from(query)].load()
     }
 
     #[inline(always)]
     fn set_parent(&self, query: Id, new_parent: Id) {
-        self.parents[usize::from(query)].set(new_parent)
+        self.parents[usize::from(query)].store(new_parent)
     }
 
     pub fn find(&self, mut current: Id) -> Id {
