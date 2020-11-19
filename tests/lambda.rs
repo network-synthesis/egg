@@ -54,7 +54,7 @@ fn eval(egraph: &EGraph, enode: &Lambda) -> Option<Lambda> {
 
 impl Analysis<Lambda> for LambdaAnalysis {
     type Data = Data;
-    fn merge(&self, to: &mut Data, from: Data) -> bool {
+    fn merge(&mut self, to: &mut Data, _: Id, from: Data, _: Id) -> bool {
         let before_len = to.free.len();
         // to.free.extend(from.free);
         to.free.retain(|i| from.free.contains(i));
@@ -67,7 +67,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
         }
     }
 
-    fn make(egraph: &EGraph, enode: &Lambda) -> Data {
+    fn make(egraph: &EGraph, enode: &Lambda, _: Id) -> Data {
         let f = |i: &Id| egraph[*i].data.free.iter().cloned();
         let mut free = HashSet::default();
         match enode {

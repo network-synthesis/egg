@@ -21,7 +21,7 @@ use crate::{Analysis, DisplayAsDebug, EGraph, Id, Language, Pattern, SearchMatch
 /// [`Pattern`]: struct.Pattern.html
 #[derive(Clone)]
 #[non_exhaustive]
-pub struct Rewrite<L, N> {
+pub struct Rewrite<L: Language, N: Analysis<L>> {
     /// The name of the rewrite.
     pub name: String,
     /// The searcher (left-hand side) of the rewrite.
@@ -33,7 +33,7 @@ pub struct Rewrite<L, N> {
 impl<L, N> fmt::Debug for Rewrite<L, N>
 where
     L: Language + 'static,
-    N: 'static,
+    N: Analysis<L> + 'static,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut d = f.debug_struct("Rewrite");
@@ -55,7 +55,7 @@ where
     }
 }
 
-impl<L, N> Rewrite<L, N> {
+impl<L, N> Rewrite<L, N> where L: Language, N: Analysis<L> {
     /// Returns the name of the rewrite.
     pub fn name(&self) -> &str {
         &self.name
@@ -201,10 +201,10 @@ where
 /// struct MinSize;
 /// impl Analysis<Math> for MinSize {
 ///     type Data = usize;
-///     fn merge(&self, to: &mut Self::Data, from: Self::Data) -> bool {
+///     fn merge(&mut self, to: &mut Self::Data, to_id: Id, from: Self::Data, from_id: Id) -> bool {
 ///         merge_if_different(to, (*to).min(from))
 ///     }
-///     fn make(egraph: &EGraph, enode: &Math) -> Self::Data {
+///     fn make(egraph: &EGraph, enode: &Math, id: Id) -> Self::Data {
 ///         let get_size = |i: Id| egraph[i].data;
 ///         AstSize.cost(enode, get_size)
 ///     }

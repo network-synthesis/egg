@@ -50,14 +50,14 @@ pub struct ConstantFold;
 impl Analysis<Math> for ConstantFold {
     type Data = Option<Constant>;
 
-    fn merge(&self, to: &mut Self::Data, from: Self::Data) -> bool {
+    fn merge(&mut self, to: &mut Self::Data, _: Id, from: Self::Data, _: Id) -> bool {
         if let (Some(c1), Some(c2)) = (to.as_ref(), from.as_ref()) {
             assert_eq!(c1, c2);
         }
         merge_if_different(to, to.or(from))
     }
 
-    fn make(egraph: &EGraph, enode: &Math) -> Self::Data {
+    fn make(egraph: &EGraph, enode: &Math, _: Id) -> Self::Data {
         let x = |i: &Id| egraph[*i].data;
         Some(match enode {
             Math::Constant(c) => *c,
