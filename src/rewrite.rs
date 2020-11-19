@@ -21,19 +21,19 @@ use crate::{Analysis, DisplayAsDebug, EGraph, Id, Language, Pattern, SearchMatch
 /// [`Pattern`]: struct.Pattern.html
 #[derive(Clone)]
 #[non_exhaustive]
-pub struct Rewrite<L: Language, N: Analysis<L>> {
+pub struct Rewrite<L: Language+Send+Sync, N: Analysis<L>+Send+Sync> {
     /// The name of the rewrite.
     pub name: String,
     /// The searcher (left-hand side) of the rewrite.
-    pub searcher: Arc<dyn Searcher<L, N>>,
+    pub searcher: Arc<dyn Searcher<L, N>+Send+Sync>,
     /// The applier (right-hand side) of the rewrite.
-    pub applier: Arc<dyn Applier<L, N>>,
+    pub applier: Arc<dyn Applier<L, N>+Send+Sync>,
 }
 
 impl<L, N> fmt::Debug for Rewrite<L, N>
 where
-    L: Language + 'static,
-    N: Analysis<L> + 'static,
+    L: Language + Send+Sync+'static,
+    N: Analysis<L> + Send+Sync+'static,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut d = f.debug_struct("Rewrite");
@@ -62,7 +62,7 @@ impl<L, N> Rewrite<L, N> where L: Language, N: Analysis<L> {
     }
 }
 
-impl<L: Language, N: Analysis<L>> Rewrite<L, N> {
+impl<L: Language, N: Analysis<L>> Rewrite<L, N> where L:Send+Sync, N:Send+Sync {
     /// Create a new [`Rewrite`]. You typically want to use the
     /// [`rewrite!`] macro instead.
     ///
@@ -70,8 +70,8 @@ impl<L: Language, N: Analysis<L>> Rewrite<L, N> {
     /// [`rewrite!`]: macro.rewrite.html
     pub fn new(
         name: impl Into<String>,
-        searcher: impl Searcher<L, N> + 'static,
-        applier: impl Applier<L, N> + 'static,
+        searcher: impl Searcher<L, N> + Send+Sync+'static,
+        applier: impl Applier<L, N> + Send+Sync+'static,
     ) -> Result<Self, String> {
         let name = name.into();
         let searcher = Arc::new(searcher);
