@@ -242,7 +242,7 @@ type RunnerResult<T> = std::result::Result<T, StopReason>;
 impl<L, N, IterData> Runner<L, N, IterData>
 where
     L: Language,
-    N: Analysis<L>,
+    N: Analysis<L>+Default,
     IterData: IterationData<L, N>,
 {
     /// Create a new `Runner` with the given analysis and default parameters.
@@ -337,11 +337,38 @@ where
         Self { egraph, ..self }
     }
 
+
     /// Run this `Runner` until it stops.
     /// After this, the field
     /// [`stop_reason`](#structfield.stop_reason) is guaranteed to be
     /// set.
-    pub fn run<'a, R>(mut self, rules: R) -> Self
+    pub fn run<'a, R>(self, rules: R) -> Self
+    where
+        R: IntoIterator<Item = &'a Rewrite<L, N>>,
+        L: 'a,
+        N: 'a,
+    {
+        self.run_helper(true, &mut EGraph::<L, N>::new(N::default()), rules)
+    }
+
+    /// Run this `Runner` until it stops.
+    /// After this, the field
+    /// [`stop_reason`](#structfield.stop_reason) is guaranteed to be
+    /// set.
+    pub fn run_egraph<'a, R>(self, egraph: &mut EGraph<L, N>, rules: R) -> Self
+    where
+        R: IntoIterator<Item = &'a Rewrite<L, N>>,
+        L: 'a,
+        N: 'a,
+    {
+        self.run_helper(false, egraph, rules)
+    }
+
+    /// Run this `Runner` until it stops.
+    /// After this, the field
+    /// [`stop_reason`](#structfield.stop_reason) is guaranteed to be
+    /// set.
+    pub fn run_helper<'a, R>(mut self, use_internal: bool, egraph: &mut EGraph<L, N>, rules: R) -> Self
     where
         R: IntoIterator<Item = &'a Rewrite<L, N>>,
         L: 'a,
@@ -349,17 +376,17 @@ where
     {
         let rules: Vec<&Rewrite<L, N>> = rules.into_iter().collect();
         check_rules(&rules);
-        self.egraph.rebuild();
+        if use_internal {self.egraph.rebuild()} else {egraph.rebuild()};
         // TODO check that we haven't
         loop {
-            if let Err(stop_reason) = self.run_one(&rules) {
+            if let Err(stop_reason) = self.run_one_egraph(use_internal, egraph, &rules) {
                 info!("Stopping: {:?}", stop_reason);
                 self.stop_reason = Some(stop_reason);
                 // push on a final iteration to mark the end state
                 self.iterations.push(Iteration {
                     stop_reason: self.stop_reason.clone(),
-                    egraph_nodes: self.egraph.total_number_of_nodes(),
-                    egraph_classes: self.egraph.number_of_classes(),
+                    egraph_nodes: if use_internal {self.egraph.total_number_of_nodes()} else {egraph.total_number_of_nodes()},
+                    egraph_classes: if use_internal {self.egraph.number_of_classes()} else {egraph.number_of_classes()},
                     data: IterData::make(&self),
                     applied: Default::default(),
                     search_time: Default::default(),
@@ -379,6 +406,11 @@ where
     #[rustfmt::skip]
     /// Prints some information about a runners run.
     pub fn print_report(&self) {
+        self.print_report_egraph(true, &EGraph::<L, N>::new(N::default()))
+    }
+
+    /// Prints some information about a runners run.
+    pub fn print_report_egraph(&self, use_internal: bool, egraph: &EGraph<L, N>) {
         let search_time: f64 = self.iterations.iter().map(|i| i.search_time).sum();
         let apply_time: f64 = self.iterations.iter().map(|i| i.apply_time).sum();
         let rebuild_time: f64 = self.iterations.iter().map(|i| i.rebuild_time).sum();
@@ -387,7 +419,7 @@ where
         let iters = self.iterations.len();
         let rebuilds: usize = self.iterations.iter().map(|i| i.n_rebuilds).sum();
 
-        let eg = &self.egraph;
+        let eg = if use_internal {&self.egraph} else {&egraph};
         println!("Runner report");
         println!("=============");
         println!("  Stop reason: {:?}", self.stop_reason.as_ref().unwrap());
@@ -400,16 +432,20 @@ where
         println!("    Rebuild: ({:.2}) {}", rebuild_time / total_time, rebuild_time);
     }
 
-    fn run_one(&mut self, rules: &[&Rewrite<L, N>]) -> RunnerResult<()> {
+    fn _run_one(&mut self, rules: &[&Rewrite<L, N>]) -> RunnerResult<()> {
+        self.run_one_egraph(true, &mut EGraph::<L, N>::new(N::default()), rules)
+    }
+
+    fn run_one_egraph(&mut self, use_internal: bool, egraph: &mut EGraph<L, N>, rules: &[&Rewrite<L, N>]) -> RunnerResult<()> {
         assert!(self.stop_reason.is_none());
 
         info!("\nIteration {}", self.iterations.len());
 
         self.try_start();
-        self.check_limits()?;
+        self.check_limits_egraph(use_internal, egraph)?;
 
-        let egraph_nodes = self.egraph.total_size();
-        let egraph_classes = self.egraph.number_of_classes();
+        let egraph_nodes = if use_internal {self.egraph.total_size()} else {egraph.total_size()};
+        let egraph_classes = if use_internal {self.egraph.number_of_classes()} else {egraph.number_of_classes()};
 
         let hook_time = Instant::now();
         let mut hooks = std::mem::take(&mut self.hooks);
@@ -419,19 +455,19 @@ where
         self.hooks = hooks;
         let hook_time = hook_time.elapsed().as_secs_f64();
 
-        let egraph_nodes_after_hooks = self.egraph.total_size();
-        let egraph_classes_after_hooks = self.egraph.number_of_classes();
+        let egraph_nodes_after_hooks = if use_internal {self.egraph.total_size()} else {egraph.total_size()};
+        let egraph_classes_after_hooks = if use_internal {self.egraph.number_of_classes()} else {egraph.number_of_classes()};
 
         let i = self.iterations.len();
-        trace!("EGraph {:?}", self.egraph.dump());
+        trace!("EGraph {:?}", if use_internal {self.egraph.dump()} else {egraph.dump()});
 
         let start_time = Instant::now();
 
         let mut matches = Vec::new();
         for rule in rules {
-            let ms = self.scheduler.search_rewrite(i, &self.egraph, rule);
+            let ms = self.scheduler.search_rewrite(i, if use_internal {&self.egraph} else {&egraph}, rule);
             matches.push(ms);
-            if self.check_limits().is_err() {
+            if self.check_limits_egraph(use_internal, egraph).is_err() {
                 // bail on searching, make sure applying doesn't do anything
                 matches.clear();
                 break;
@@ -452,7 +488,7 @@ where
 
             debug!("Applying {} {} times", rw.name(), total_matches);
 
-            let actually_matched = self.scheduler.apply_rewrite(i, &mut self.egraph, rw, ms);
+            let actually_matched = self.scheduler.apply_rewrite(i, if use_internal {&mut self.egraph} else {egraph}, rw, ms);
             if actually_matched > 0 {
                 if let Some(count) = applied.get_mut(rw.name()) {
                     *count += actually_matched;
@@ -462,7 +498,7 @@ where
                 debug!("Applied {} {} times", rw.name(), actually_matched);
             }
 
-            if self.check_limits().is_err() {
+            if self.check_limits_egraph(use_internal, egraph).is_err() {
                 break;
             }
         }
@@ -471,14 +507,14 @@ where
         info!("Apply time: {}", apply_time);
 
         let rebuild_time = Instant::now();
-        let n_rebuilds = self.egraph.rebuild();
+        let n_rebuilds = if use_internal {self.egraph.rebuild()} else {egraph.rebuild()};
 
         let rebuild_time = rebuild_time.elapsed().as_secs_f64();
         info!("Rebuild time: {}", rebuild_time);
         info!(
             "Size: n={}, e={}",
-            self.egraph.total_size(),
-            self.egraph.number_of_classes()
+            if use_internal {self.egraph.total_size()} else {egraph.total_size()},
+            if use_internal {self.egraph.number_of_classes()} else {egraph.number_of_classes()}
         );
 
         let saturated = applied.is_empty()
@@ -511,13 +547,17 @@ where
         self.start_time.get_or_insert_with(Instant::now);
     }
 
-    fn check_limits(&self) -> RunnerResult<()> {
+    fn _check_limits(&self) -> RunnerResult<()> {
+        self.check_limits_egraph(true, &EGraph::<L, N>::new(N::default()))
+    }
+
+    fn check_limits_egraph(&self, use_internal: bool, egraph: &EGraph<L, N>) -> RunnerResult<()> {
         let elapsed = self.start_time.unwrap().elapsed();
         if elapsed > self.time_limit {
             return Err(StopReason::TimeLimit(elapsed.as_secs_f64()));
         }
 
-        let size = self.egraph.total_size();
+        let size = if use_internal {self.egraph.total_size()} else {egraph.total_size()};
         if size > self.node_limit {
             return Err(StopReason::NodeLimit(size));
         }
