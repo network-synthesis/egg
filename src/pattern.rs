@@ -40,8 +40,8 @@ use crate::{machine, Analysis, Applier, EGraph, Id, Language, RecExpr, Searcher,
 /// }
 ///
 /// let mut egraph = EGraph::<Math, ()>::default();
-/// let a11 = egraph.add_expr(&"(+ 1 1)".parse().unwrap());
-/// let a22 = egraph.add_expr(&"(+ 2 2)".parse().unwrap());
+/// let (a11,_) = egraph.add_expr(&"(+ 1 1)".parse().unwrap());
+/// let (a22,_) = egraph.add_expr(&"(+ 2 2)".parse().unwrap());
 ///
 /// // use Var syntax (leading question mark) to get a
 /// // variable in the Pattern
@@ -275,7 +275,7 @@ fn apply_pat<L: Language, A: Analysis<L>>(
                 .clone()
                 .map_children(|child| apply_pat(&pat[..usize::from(child) + 1], egraph, subst));
             trace!("adding: {:?}", n);
-            egraph.add(n)
+            egraph.add(n).0
         }
     };
 
@@ -295,13 +295,13 @@ mod tests {
         crate::init_logger();
         let mut egraph = EGraph::default();
 
-        let x = egraph.add(S::leaf("x"));
-        let y = egraph.add(S::leaf("y"));
-        let plus = egraph.add(S::new("+", vec![x, y]));
+        let (x,_) = egraph.add(S::leaf("x"));
+        let (y,_) = egraph.add(S::leaf("y"));
+        let (plus,_) = egraph.add(S::new("+", vec![x, y]));
 
-        let z = egraph.add(S::leaf("z"));
-        let w = egraph.add(S::leaf("w"));
-        let plus2 = egraph.add(S::new("+", vec![z, w]));
+        let (z,_) = egraph.add(S::leaf("z"));
+        let (w,_) = egraph.add(S::leaf("w"));
+        let (plus2,_) = egraph.add(S::new("+", vec![z, w]));
 
         egraph.union(plus, plus2);
         egraph.rebuild();

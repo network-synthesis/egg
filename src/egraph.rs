@@ -136,8 +136,8 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
     /// ```
     /// use egg::{*, SymbolLang as S};
     /// let mut egraph = EGraph::<S, ()>::default();
-    /// let x = egraph.add(S::leaf("x"));
-    /// let y = egraph.add(S::leaf("y"));
+    /// let (x,_) = egraph.add(S::leaf("x"));
+    /// let (y,_) = egraph.add(S::leaf("y"));
     /// // only one eclass
     /// egraph.union(x, y);
     /// egraph.rebuild();
@@ -169,8 +169,8 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
     /// ```
     /// use egg::{*, SymbolLang as S};
     /// let mut egraph = EGraph::<S, ()>::default();
-    /// let x = egraph.add(S::leaf("x"));
-    /// let y = egraph.add(S::leaf("y"));
+    /// let (x,_) = egraph.add(S::leaf("x"));
+    /// let (y,_) = egraph.add(S::leaf("y"));
     /// assert_ne!(egraph.find(x), egraph.find(y));
     ///
     /// egraph.union(x, y);
@@ -217,24 +217,27 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
     /// ```
     /// use egg::{*, SymbolLang as S};
     /// let mut egraph = EGraph::<S, ()>::default();
-    /// let x = egraph.add(S::leaf("x"));
-    /// let y = egraph.add(S::leaf("y"));
-    /// let plus = egraph.add(S::new("+", vec![x, y]));
+    /// let (x,_) = egraph.add(S::leaf("x"));
+    /// let (y,_) = egraph.add(S::leaf("y"));
+    /// let (plus,_) = egraph.add(S::new("+", vec![x, y]));
     /// let plus_recexpr = "(+ x y)".parse().unwrap();
-    /// assert_eq!(plus, egraph.add_expr(&plus_recexpr));
+    /// assert_eq!(plus, egraph.add_expr(&plus_recexpr).0);
     /// ```
     ///
     /// [`EGraph`]: struct.EGraph.html
     /// [`RecExpr`]: struct.RecExpr.html
     /// [`add_expr`]: struct.EGraph.html#method.add_expr
-    pub fn add_expr(&mut self, expr: &RecExpr<L>) -> Id {
+    pub fn add_expr(&mut self, expr: &RecExpr<L>) -> (Id,bool) {
+        let mut changed = false;
         let nodes = expr.as_ref();
         let mut new_ids = Vec::with_capacity(nodes.len());
         for node in nodes {
             let node = node.clone().map_children(|i| new_ids[usize::from(i)]);
-            new_ids.push(self.add(node))
+            let (x,c) = self.add(node);
+            changed |= c;
+            new_ids.push(x)
         }
-        *new_ids.last().unwrap()
+        (*new_ids.last().unwrap(), changed)
     }
 
     /// Lookup the eclass of the given enode.
@@ -246,14 +249,14 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
     /// ```
     /// # use egg::*;
     /// let mut egraph: EGraph<SymbolLang, ()> = Default::default();
-    /// let a = egraph.add(SymbolLang::leaf("a"));
-    /// let b = egraph.add(SymbolLang::leaf("b"));
-    /// let c = egraph.add(SymbolLang::leaf("c"));
+    /// let (a,_) = egraph.add(SymbolLang::leaf("a"));
+    /// let (b,_) = egraph.add(SymbolLang::leaf("b"));
+    /// let (c,_) = egraph.add(SymbolLang::leaf("c"));
     ///
     /// // lookup will find this node if its in the egraph
     /// let mut node_f_ac = SymbolLang::new("f", vec![a, c]);
     /// assert_eq!(egraph.lookup(node_f_ac.clone()), None);
-    /// let id = egraph.add(node_f_ac.clone());
+    /// let (id,_) = egraph.add(node_f_ac.clone());
     /// assert_eq!(egraph.lookup(node_f_ac.clone()), Some(id));
     ///
     /// // if the query node isn't canonical, and its passed in by &mut instead of owned,
@@ -286,31 +289,34 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
     /// [`EGraph`]: struct.EGraph.html
     /// [`EClass`]: struct.EClass.html
     /// [`add`]: struct.EGraph.html#method.add
-    pub fn add(&mut self, mut enode: L) -> Id {
-        self.lookup(&mut enode).unwrap_or_else(|| {
-            let id = self.unionfind.make_set();
-            log::trace!("  ...adding to {}", id);
-            let class = Box::new(EClass {
-                id,
-                nodes: vec![enode.clone()],
-                data: N::make(self, &enode, id),
-                parents: Default::default(),
-            });
+    pub fn add(&mut self, mut enode: L) -> (Id,bool) {
+        match self.lookup(&mut enode) {
+            Some(x) => (x,false),
+            None => {
+                let id = self.unionfind.make_set();
+                log::trace!("  ...adding to {}", id);
+                let class = Box::new(EClass {
+                    id,
+                    nodes: vec![enode.clone()],
+                    data: N::make(self, &enode, id),
+                    parents: Default::default(),
+                });
 
-            // add this enode to the parent lists of its children
-            enode.for_each(|child| {
-                let tup = (enode.clone(), id);
-                self[child].parents.push(tup);
-            });
+                // add this enode to the parent lists of its children
+                enode.for_each(|child| {
+                    let tup = (enode.clone(), id);
+                    self[child].parents.push(tup);
+                });
 
-            assert_eq!(self.classes.len(), usize::from(id));
-            self.classes.push(Some(class));
-            self.n_classes += 1;
-            assert!(self.memo.insert(enode, id).is_none());
+                assert_eq!(self.classes.len(), usize::from(id));
+                self.classes.push(Some(class));
+                self.n_classes += 1;
+                assert!(self.memo.insert(enode, id).is_none());
 
-            N::modify(self, id);
-            id
-        })
+                N::modify(self, id);
+                (id,true)
+            }
+        }
     }
 
     /// Checks whether two [`RecExpr`]s are equivalent.
@@ -587,10 +593,10 @@ impl<L: Language, N: Analysis<L>> EGraph<L, N> {
     /// ```
     /// use egg::{*, SymbolLang as S};
     /// let mut egraph = EGraph::<S, ()>::default();
-    /// let x = egraph.add(S::leaf("x"));
-    /// let y = egraph.add(S::leaf("y"));
-    /// let ax = egraph.add_expr(&"(+ a x)".parse().unwrap());
-    /// let ay = egraph.add_expr(&"(+ a y)".parse().unwrap());
+    /// let (x,_) = egraph.add(S::leaf("x"));
+    /// let (y,_) = egraph.add(S::leaf("y"));
+    /// let (ax,_) = egraph.add_expr(&"(+ a x)".parse().unwrap());
+    /// let (ay,_) = egraph.add_expr(&"(+ a y)".parse().unwrap());
     ///
     /// // The effects of this union aren't yet visible; ax and ay
     /// // should be equivalent by congruence since x = y.
@@ -683,11 +689,11 @@ mod tests {
         crate::init_logger();
         let mut egraph = EGraph::<S, ()>::default();
 
-        let x = egraph.add(S::leaf("x"));
-        let x2 = egraph.add(S::leaf("x"));
-        let _plus = egraph.add(S::new("+", vec![x, x2]));
+        let (x,_) = egraph.add(S::leaf("x"));
+        let (x2,_) = egraph.add(S::leaf("x"));
+        let (_plus,_) = egraph.add(S::new("+", vec![x, x2]));
 
-        let y = egraph.add(S::leaf("y"));
+        let (y,_) = egraph.add(S::leaf("y"));
 
         egraph.union(x, y);
         egraph.rebuild();

@@ -248,12 +248,12 @@ where
 ///             // (+    ?a    (*    ?b       ?c   ))
 ///             let b: Id = subst[self.b];
 ///             let c: Id = subst[self.c];
-///             let zero = egraph.add(Math::Num(0));
-///             let a0 = egraph.add(Math::Add([a, zero]));
-///             let b0 = egraph.add(Math::Add([b, zero]));
-///             let c0 = egraph.add(Math::Add([c, zero]));
-///             let b0c0 = egraph.add(Math::Mul([b0, c0]));
-///             let a0b0c0 = egraph.add(Math::Add([a0, b0c0]));
+///             let (zero,_) = egraph.add(Math::Num(0));
+///             let (a0,_) = egraph.add(Math::Add([a, zero]));
+///             let (b0,_) = egraph.add(Math::Add([b, zero]));
+///             let (c0,_) = egraph.add(Math::Add([c, zero]));
+///             let (b0c0,_) = egraph.add(Math::Mul([b0, c0]));
+///             let (a0b0c0,_) = egraph.add(Math::Add([a0, b0c0]));
 ///             // NOTE: we just return the id according to what we
 ///             // want unified with matched_id. The `apply_matches`
 ///             // method actually does the union, _not_ `apply_one`.
@@ -489,12 +489,12 @@ mod tests {
         crate::init_logger();
         let mut egraph = EGraph::default();
 
-        let x = egraph.add(S::leaf("x"));
-        let y = egraph.add(S::leaf("2"));
-        let mul = egraph.add(S::new("*", vec![x, y]));
+        let (x,_) = egraph.add(S::leaf("x"));
+        let (y,_) = egraph.add(S::leaf("2"));
+        let (mul,_) = egraph.add(S::new("*", vec![x, y]));
 
         let true_pat = Pattern::from_str("TRUE").unwrap();
-        let true_id = egraph.add(S::leaf("TRUE"));
+        let (true_id,_) = egraph.add(S::leaf("TRUE"));
 
         let pow2b = Pattern::from_str("(is-power2 ?b)").unwrap();
         let mul_to_shift = rewrite!(
@@ -509,7 +509,7 @@ mod tests {
         assert!(apps.is_empty());
 
         println!("Add the needed equality");
-        let two_ispow2 = egraph.add(S::new("is-power2", vec![y]));
+        let (two_ispow2,_) = egraph.add(S::new("is-power2", vec![y]));
         egraph.union(two_ispow2, true_id);
 
         println!("Should fire now");
@@ -526,7 +526,7 @@ mod tests {
         let start = RecExpr::from_str("(+ x y)").unwrap();
         let goal = RecExpr::from_str("xy").unwrap();
 
-        let root = egraph.add_expr(&start);
+        let (root,_) = egraph.add_expr(&start);
 
         fn get(egraph: &EGraph, id: Id) -> Symbol {
             egraph[id].nodes[0].op
@@ -541,7 +541,7 @@ mod tests {
                 let a = get(&egraph, subst[a]);
                 let b = get(&egraph, subst[b]);
                 let s = format!("{}{}", a, b);
-                vec![egraph.add(S::leaf(&s))]
+                vec![egraph.add(S::leaf(&s)).0]
             }
         }
 

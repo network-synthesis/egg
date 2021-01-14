@@ -91,7 +91,7 @@ impl Analysis<Lambda> for LambdaAnalysis {
 
     fn modify(egraph: &mut EGraph, id: Id) {
         if let Some(c) = egraph[id].data.constant.clone() {
-            let const_id = egraph.add(c);
+            let (const_id,_) = egraph.add(c);
             egraph.union(id, const_id);
         }
     }
@@ -162,7 +162,7 @@ impl Applier<Lambda, LambdaAnalysis> for CaptureAvoid {
         if v2_free_in_e {
             let mut subst = subst.clone();
             let sym = Lambda::Symbol(format!("_{}", eclass).into());
-            subst.insert(self.fresh, egraph.add(sym));
+            subst.insert(self.fresh, egraph.add(sym).0);
             self.if_free.apply_one(egraph, eclass, &subst)
         } else {
             self.if_not_free.apply_one(egraph, eclass, &subst)

@@ -37,7 +37,7 @@ impl Analysis<Prop> for ConstantFold {
     fn modify(egraph: &mut EGraph, id: Id) {
         println!("Modifying {}", id);
         if let Some(c) = egraph[id].data {
-            let const_id = egraph.add(Prop::Bool(c));
+            let (const_id,_) = egraph.add(Prop::Bool(c));
             egraph.union(id, const_id);
         }
     }

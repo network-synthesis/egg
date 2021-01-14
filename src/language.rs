@@ -442,7 +442,7 @@ impl Analysis<SimpleMath> for ConstantFolding {
 
     fn modify(egraph: &mut EGraph<SimpleMath, Self>, id: Id) {
         if let Some(i) = egraph[id].data {
-            let added = egraph.add(SimpleMath::Num(i));
+            let (added,_) = egraph.add(SimpleMath::Num(i));
             egraph.union(id, added);
         }
     }
@@ -459,7 +459,7 @@ let rules = &[
 
 let expr = "(+ 0 (* (+ 4 -3) foo))".parse().unwrap();
 let mut runner = Runner::<SimpleMath, ConstantFolding, ()>::default().with_expr(&expr).run(rules);
-let just_foo = runner.egraph.add_expr(&"foo".parse().unwrap());
+let (just_foo,_) = runner.egraph.add_expr(&"foo".parse().unwrap());
 assert_eq!(runner.egraph.find(runner.roots[0]), runner.egraph.find(just_foo));
 ```
 
