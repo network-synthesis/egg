@@ -181,7 +181,7 @@ where
 /// Error returned by [`Runner`] when it stops.
 ///
 /// [`Runner`]: struct.Runner.html
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde-1", derive(serde::Serialize))]
 pub enum StopReason {
     /// The egraph saturated, i.e., there was an iteration where we
