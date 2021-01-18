@@ -475,6 +475,7 @@ where
             }*/
             result = result.and(self.check_limits_egraph(use_internal, egraph));
             if result.is_err() {
+                matches.clear();
                 break;
             }
         }
