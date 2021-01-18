@@ -463,6 +463,7 @@ where
 
         let start_time = Instant::now();
 
+        let mut result = Ok(());
         let mut matches = Vec::new();
         for rule in rules {
             let ms = self.scheduler.search_rewrite(i, if use_internal {&self.egraph} else {&egraph}, rule);
@@ -472,6 +473,10 @@ where
                 matches.clear();
                 break;
             }*/
+            result = result.and(self.check_limits_egraph(use_internal, egraph));
+            if result.is_err() {
+                break;
+            }
         }
 
         let search_time = start_time.elapsed().as_secs_f64();
@@ -501,6 +506,10 @@ where
             /*if self.check_limits_egraph(use_internal, egraph).is_err() {
                 break;
             }*/
+            result = result.and(self.check_limits_egraph(use_internal, egraph));
+            if result.is_err() {
+                break;
+            }
         }
 
         let apply_time = apply_time.elapsed().as_secs_f64();
@@ -536,7 +545,9 @@ where
             stop_reason: None,
         });
 
-        if saturated {
+        if result.is_err() {
+            result
+        } else if saturated {
             Err(StopReason::Saturated)
         } else {
             Ok(())
