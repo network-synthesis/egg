@@ -498,9 +498,9 @@ where
                 debug!("Applied {} {} times", rw.name(), actually_matched);
             }
 
-            if self.check_limits_egraph(use_internal, egraph).is_err() {
+            /*if self.check_limits_egraph(use_internal, egraph).is_err() {
                 break;
-            }
+            }*/
         }
 
         let apply_time = apply_time.elapsed().as_secs_f64();
