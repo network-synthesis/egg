@@ -467,11 +467,11 @@ where
         for rule in rules {
             let ms = self.scheduler.search_rewrite(i, if use_internal {&self.egraph} else {&egraph}, rule);
             matches.push(ms);
-            if self.check_limits_egraph(use_internal, egraph).is_err() {
+            /*if self.check_limits_egraph(use_internal, egraph).is_err() {
                 // bail on searching, make sure applying doesn't do anything
                 matches.clear();
                 break;
-            }
+            }*/
         }
 
         let search_time = start_time.elapsed().as_secs_f64();
