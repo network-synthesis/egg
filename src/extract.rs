@@ -213,7 +213,6 @@ where
         eclass: Id,
         added_memo: &mut HashMap<Id, Id>,
     ) -> (Id, CF::Cost) {
-        log::debug!("find_best_rec({:?})", eclass);
         let id = self.egraph.find(eclass);
         let (best_cost, best_node) = match self.costs.get(&id) {
             Some(result) => result.clone(),
