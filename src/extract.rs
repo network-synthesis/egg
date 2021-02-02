@@ -194,10 +194,16 @@ where
     /// Find the cheapest (lowest cost) represented `RecExpr` in the
     /// given eclass.
     pub fn find_best(&mut self, eclass: Id) -> (CF::Cost, RecExpr<L>) {
+        self.find_best_with_limit(eclass, None)
+    }
+
+    /// Find the cheapest (lowest cost) represented `RecExpr` in the
+    /// given eclass.
+    pub fn find_best_with_limit(&mut self, eclass: Id, depth_limit: Option<usize>) -> (CF::Cost, RecExpr<L>) {
         let mut expr = RecExpr::default();
         // added_memo maps eclass id to id in expr
         let mut added_memo: HashMap<Id, Id> = Default::default();
-        let (_, cost) = self.find_best_rec(&mut expr, eclass, &mut added_memo);
+        let (_, cost) = self.find_best_rec(&mut expr, eclass, &mut added_memo, 0, depth_limit);
         (cost, expr)
     }
 
@@ -212,6 +218,8 @@ where
         expr: &mut RecExpr<L>,
         eclass: Id,
         added_memo: &mut HashMap<Id, Id>,
+        depth: usize,
+        depth_limit: Option<usize>,
     ) -> (Id, CF::Cost) {
         log::debug!("find_best_rec({:?})", eclass);
         let id = self.egraph.find(eclass);
@@ -220,14 +228,23 @@ where
             None => panic!("Failed to extract from eclass {}", id),
         };
 
-        match added_memo.get(&id) {
-            Some(id_expr) => (*id_expr, best_cost),
-            None => {
-                let node =
-                    best_node.map_children(|child| self.find_best_rec(expr, child, added_memo).0);
-                let id_expr = expr.add(node);
-                assert!(added_memo.insert(id, id_expr).is_none());
-                (id_expr, best_cost)
+        let limit_exceeded = match depth_limit {
+            Some(limit) => depth > limit,
+            None => false
+        };
+
+        if limit_exceeded {
+            (id, best_cost)
+        } else {
+            match added_memo.get(&id) {
+                Some(id_expr) => (*id_expr, best_cost),
+                None => {
+                    let node =
+                        best_node.map_children(|child| self.find_best_rec(expr, child, added_memo, depth+1, depth_limit).0);
+                    let id_expr = expr.add(node);
+                    assert!(added_memo.insert(id, id_expr).is_none());
+                    (id_expr, best_cost)
+                }
             }
         }
     }
